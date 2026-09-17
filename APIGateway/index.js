@@ -2,54 +2,42 @@ const express = require("express");
 const axios = require("axios");
 const jwt = require("jsonwebtoken");
 const dotenv = require("dotenv");
+const cors = require("cors");
 
 dotenv.config();
 
 const app = express();
 
+app.use(cors());
 app.use(express.json());
 
-const REGISTRATION_SERVICE =
-    "http://localhost:3001";
 
-const LOGIN_SERVICE =
-    "http://localhost:3002";
+// ===============================
+// MICROservice URLs
+// ===============================
 
-const ADMIN_SERVICE =
-    "http://localhost:3003";
-
-const USER_SERVICE =
-    "http://localhost:3004";
+const REGISTRATION_SERVICE = "http://localhost:3001";
+const LOGIN_SERVICE = "http://localhost:3002";
+const ADMIN_SERVICE = "http://localhost:3003";
+const USER_SERVICE = "http://localhost:3004";
 
 
-/*
-==================================================
-JWT AUTHENTICATION
-==================================================
-*/
+// ===============================
+// JWT AUTHENTICATION
+// ===============================
 
 function authenticateToken(req, res, next) {
-
     const authHeader = req.headers.authorization;
 
     if (!authHeader) {
         return res.status(401).json({
-            message: "Access denied. No token provided."
+            message: "No token provided"
         });
     }
 
-    const parts = authHeader.split(" ");
-
-    if (parts.length !== 2 || parts[0] !== "Bearer") {
-        return res.status(401).json({
-            message: "Invalid authorization format"
-        });
-    }
-
-    const token = parts[1];
+    const token = authHeader.split(" ")[1];
 
     try {
-
         const decoded = jwt.verify(
             token,
             process.env.JWT_SECRET
@@ -58,9 +46,7 @@ function authenticateToken(req, res, next) {
         req.user = decoded;
 
         next();
-
     } catch (error) {
-
         return res.status(401).json({
             message: "Invalid or expired token"
         });
@@ -68,25 +54,15 @@ function authenticateToken(req, res, next) {
 }
 
 
-/*
-==================================================
-ROLE CHECK
-==================================================
-*/
+// ===============================
+// ROLE AUTHORIZATION
+// ===============================
 
 function requireRole(role) {
-
     return (req, res, next) => {
-
-        if (!req.user) {
-            return res.status(401).json({
-                message: "Authentication required"
-            });
-        }
-
-        if (req.user.role !== role) {
+        if (!req.user || req.user.role !== role) {
             return res.status(403).json({
-                message: `Access denied. ${role} role required.`
+                message: `${role} access required`
             });
         }
 
@@ -95,16 +71,18 @@ function requireRole(role) {
 }
 
 
-/*
-==================================================
-REGISTRATION ROUTE
-==================================================
-*/
+// ============================================================
+// PUBLIC ROUTES
+// ============================================================
 
-app.post("/register/userregister", async (req, res) => {
+// ------------------------------------------------------------
+// POST /register
+// External:  /register
+// Internal:  /register/userregister
+// ------------------------------------------------------------
 
+app.post("/register", async (req, res) => {
     try {
-
         const response = await axios.post(
             `${REGISTRATION_SERVICE}/register/userregister`,
             req.body
@@ -113,30 +91,27 @@ app.post("/register/userregister", async (req, res) => {
         res.status(response.status).json(response.data);
 
     } catch (error) {
-
         if (error.response) {
             return res
                 .status(error.response.status)
                 .json(error.response.data);
         }
 
-        res.status(500).json({
+        return res.status(500).json({
             message: "Registration service unavailable"
         });
     }
 });
 
 
-/*
-==================================================
-LOGIN ROUTE
-==================================================
-*/
+// ------------------------------------------------------------
+// POST /auth/login
+// External:  /auth/login
+// Internal:  /auth/login
+// ------------------------------------------------------------
 
 app.post("/auth/login", async (req, res) => {
-
     try {
-
         const response = await axios.post(
             `${LOGIN_SERVICE}/auth/login`,
             req.body
@@ -145,34 +120,35 @@ app.post("/auth/login", async (req, res) => {
         res.status(response.status).json(response.data);
 
     } catch (error) {
-
         if (error.response) {
             return res
                 .status(error.response.status)
                 .json(error.response.data);
         }
 
-        res.status(500).json({
+        return res.status(500).json({
             message: "Login service unavailable"
         });
     }
 });
 
 
-/*
-==================================================
-ADMIN SEARCH USER
-==================================================
-*/
+// ============================================================
+// ADMIN ROUTES
+// ============================================================
+
+// ------------------------------------------------------------
+// GET /admin/users/search
+// External:  /admin/users/search
+// Internal:  /admin/searchuser
+// ------------------------------------------------------------
 
 app.get(
-    "/admin/searchuser",
+    "/admin/users/search",
     authenticateToken,
     requireRole("admin"),
     async (req, res) => {
-
         try {
-
             const response = await axios.get(
                 `${ADMIN_SERVICE}/admin/searchuser`,
                 {
@@ -186,14 +162,13 @@ app.get(
             res.status(response.status).json(response.data);
 
         } catch (error) {
-
             if (error.response) {
                 return res
                     .status(error.response.status)
                     .json(error.response.data);
             }
 
-            res.status(500).json({
+            return res.status(500).json({
                 message: "Admin service unavailable"
             });
         }
@@ -201,20 +176,18 @@ app.get(
 );
 
 
-/*
-==================================================
-ADMIN VIEW ALL USERS
-==================================================
-*/
+// ------------------------------------------------------------
+// GET /admin/users
+// External:  /admin/users
+// Internal:  /admin/viewalluser
+// ------------------------------------------------------------
 
 app.get(
-    "/admin/viewalluser",
+    "/admin/users",
     authenticateToken,
     requireRole("admin"),
     async (req, res) => {
-
         try {
-
             const response = await axios.get(
                 `${ADMIN_SERVICE}/admin/viewalluser`,
                 {
@@ -227,14 +200,13 @@ app.get(
             res.status(response.status).json(response.data);
 
         } catch (error) {
-
             if (error.response) {
                 return res
                     .status(error.response.status)
                     .json(error.response.data);
             }
 
-            res.status(500).json({
+            return res.status(500).json({
                 message: "Admin service unavailable"
             });
         }
@@ -242,20 +214,18 @@ app.get(
 );
 
 
-/*
-==================================================
-ADMIN DELETE USER
-==================================================
-*/
+// ------------------------------------------------------------
+// DELETE /admin/users
+// External:  /admin/users
+// Internal:  /admin/deluser
+// ------------------------------------------------------------
 
 app.delete(
-    "/admin/deluser",
+    "/admin/users",
     authenticateToken,
     requireRole("admin"),
     async (req, res) => {
-
         try {
-
             const response = await axios.delete(
                 `${ADMIN_SERVICE}/admin/deluser`,
                 {
@@ -269,14 +239,13 @@ app.delete(
             res.status(response.status).json(response.data);
 
         } catch (error) {
-
             if (error.response) {
                 return res
                     .status(error.response.status)
                     .json(error.response.data);
             }
 
-            res.status(500).json({
+            return res.status(500).json({
                 message: "Admin service unavailable"
             });
         }
@@ -284,20 +253,22 @@ app.delete(
 );
 
 
-/*
-==================================================
-USER VIEW PROFILE
-==================================================
-*/
+// ============================================================
+// USER ROUTES
+// ============================================================
+
+// ------------------------------------------------------------
+// GET /users/me
+// External:  /users/me
+// Internal:  /user/viewprofile
+// ------------------------------------------------------------
 
 app.get(
-    "/user/viewprofile",
+    "/users/me",
     authenticateToken,
     requireRole("user"),
     async (req, res) => {
-
         try {
-
             const response = await axios.get(
                 `${USER_SERVICE}/user/viewprofile`,
                 {
@@ -310,14 +281,13 @@ app.get(
             res.status(response.status).json(response.data);
 
         } catch (error) {
-
             if (error.response) {
                 return res
                     .status(error.response.status)
                     .json(error.response.data);
             }
 
-            res.status(500).json({
+            return res.status(500).json({
                 message: "User service unavailable"
             });
         }
@@ -325,20 +295,18 @@ app.get(
 );
 
 
-/*
-==================================================
-USER UPDATE PROFILE
-==================================================
-*/
+// ------------------------------------------------------------
+// PUT /users/me
+// External:  /users/me
+// Internal:  /user/updateprofile
+// ------------------------------------------------------------
 
 app.put(
-    "/user/updateprofile",
+    "/users/me",
     authenticateToken,
     requireRole("user"),
     async (req, res) => {
-
         try {
-
             const response = await axios.put(
                 `${USER_SERVICE}/user/updateprofile`,
                 req.body,
@@ -352,20 +320,23 @@ app.put(
             res.status(response.status).json(response.data);
 
         } catch (error) {
-
             if (error.response) {
                 return res
                     .status(error.response.status)
                     .json(error.response.data);
             }
 
-            res.status(500).json({
+            return res.status(500).json({
                 message: "User service unavailable"
             });
         }
     }
 );
 
+
+// ============================================================
+// START API GATEWAY
+// ============================================================
 
 app.listen(3000, () => {
     console.log("API Gateway running on port 3000");
